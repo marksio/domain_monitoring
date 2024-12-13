@@ -9,6 +9,9 @@ docker run -d -p 16181:16181 yiminger/ymicp:latest
 
 http://0.0.0.0:16181/query/{type}?search={name}
 curl http://127.0.0.1:16181/query/web?search=baidu.com
+
+Will use cronjob in Linux to repeat (Every 6 Hours execute below script - sudo crontab -e)
+0 */6 * * * /usr/bin/python3 /backup/domain_monitor.py >> /backup/domain_monitor_logfile.log 2>&1
 """
 
 import requests
