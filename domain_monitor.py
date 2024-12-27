@@ -29,13 +29,18 @@ from datetime import datetime, timedelta
 from pymongo import MongoClient
 
 # Configuration
-DOMAINS_TO_MONITOR = ["a.con", "b.com", "c.com"]  # Only will be use when FILE_PATH can't be found
-SUBDOMAINS_TO_CHECK = ["a", "b", "c", "d", "e"]  # Subdomains to check for SSL certificates
+DOMAINS_TO_MONITOR = ["", "", ""]  # Only will be use when FILE_PATH can't be found
+SUBDOMAINS_TO_CHECK = ["", "", "", "", ""]  # Subdomains to check for SSL certificates
 FILE_PATH = "/domain_monitoring/domain_monitor.txt"  # File containing domains to monitor
 ICP_URL = "http://127.0.0.1:16181/query/web?search={}"  # Replace with your ICP query service URL
+MAX_RETRIES = 8
+
+# Alert Days Confguration
 DOMAIN_ALERT_DAYS_THRESHOLD = 30  # Number of days before expiry to trigger an alert
 SSL_ALERT_DAYS_THRESHOLD = 5  # Number of days before expiry to trigger an alert
-EMAIL_RECEIVERS = ["a@example.com", "b@example.com", "c@example.com"]
+
+# Email Configuration
+EMAIL_RECEIVERS = ["", "", "", "", ""]
 SMTP_SERVER = ""
 SMTP_PORT = 587
 SMTP_USER = ""
@@ -53,9 +58,9 @@ TELEGRAM_CHAT_ID = ""  # Replace with your chat or group ID
 # Slack Configuration
 SLACK_WEBHOOK_URL = ""
 
-def fetch_icp_info_with_retries(domain, max_retries=8):
+def fetch_icp_info_with_retries(domain):
     """Fetch ICP license information for a domain with retries."""
-    for attempt in range(max_retries):
+    for attempt in range(MAX_RETRIES):
         try:
             #print(f"Attempt {attempt + 1} to fetch ICP info for domain: {domain}")
             response = requests.get(ICP_URL.format(domain), timeout=20)
@@ -89,9 +94,9 @@ def parse_icp_data(data):
     update_record_time = icp_info.get("updateRecordTime")
     return main_license, service_license, unit_name, update_record_time
 
-def check_domain_expiry(domain, max_retries=8):
+def check_domain_expiry(domain):
     """Fetch domain expiry date using WHOIS with retries."""
-    for attempt in range(max_retries):
+    for attempt in range(MAX_RETRIES):
         try:
             domain_info = whois.whois(domain)
             expiry_date = domain_info.expiration_date
@@ -109,10 +114,10 @@ def check_domain_expiry(domain, max_retries=8):
     print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {max_retries} attempts failed.")
     return None, None
 
-def check_ssl_certificate(domain, subdomain, max_retries=8):
+def check_ssl_certificate(domain, subdomain):
     """Fetch SSL certificate expiration date for a subdomain."""
     full_domain = f"{subdomain}.{domain}"
-    for attempt in range(max_retries):
+    for attempt in range(MAX_RETRIES):
         try:
             ctx = ssl.create_default_context()
             with socket.create_connection((full_domain, 443), timeout=10) as sock:
