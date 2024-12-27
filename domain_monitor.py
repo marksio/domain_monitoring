@@ -3,9 +3,9 @@ Thank You to https://github.com/HG-ha/ICP_Query and OpenAI ChatGPT
 ICP备案查询: https://github.com/HG-ha/ICP_Query
 
 # 拉取镜像
-docker pull yiminger/ymicp:latest
+docker pull yiminger/ymicp:yolo8_latest
 # 运行并转发容器16181端口到本地所有地址
-docker run -d -p 16181:16181 yiminger/ymicp:latest
+docker run -d -p 16181:16181 yiminger/ymicp:yolo8_latest
 
 http://0.0.0.0:16181/query/{type}?search={name}
 curl http://127.0.0.1:16181/query/web?search=baidu.com
