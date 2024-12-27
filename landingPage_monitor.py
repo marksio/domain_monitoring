@@ -19,11 +19,16 @@ from datetime import datetime, timedelta
 from pymongo import MongoClient
 
 # Configuration
-DOMAINS_TO_MONITOR = ["a.cn", "b.com", "c.com"]  # Only will be use when FILE_PATH can't be found
+DOMAINS_TO_MONITOR = ["", "", "", "", ""]  # Only will be use when FILE_PATH can't be found
 FILE_PATH = "/domain_monitoring/landingPage_domain_monitor.txt"  # File containing domains to monitor
+MAX_RETRIES = 8
+
+# Alert Days Confguration
 DOMAIN_ALERT_DAYS_THRESHOLD = 30  # Number of days before expiry to trigger an alert
 SSL_ALERT_DAYS_THRESHOLD = 5  # Number of days before expiry to trigger an alert
-EMAIL_RECEIVERS = ["", "", ""]
+
+# Email Configuration
+EMAIL_RECEIVERS = ["", "", "", "", ""]
 SMTP_SERVER = "
 SMTP_PORT = 587
 SMTP_USER = ""
@@ -41,11 +46,11 @@ TELEGRAM_CHAT_ID = ""  # Replace with your chat or group ID
 # Slack Configuration
 SLACK_WEBHOOK_URL = ""
 
-def check_page_status(domain, max_retries=8):
+def check_page_status(domain):
     """Check Landing Page status with retries."""
     print(f"Checking https://{domain} landing page status")
     domain = f"https://{domain}"
-    for attempt in range(max_retries):
+    for attempt in range(MAX_RETRIES):
         try:
             response = requests.get(domain, timeout=10)
             if response.status_code == 200:
@@ -58,9 +63,9 @@ def check_page_status(domain, max_retries=8):
     print(f"WARNING - Invalid Landing Page status for domain: {domain}, all {max_retries} attempts failed.")
     return f"Request error while checking {domain}: {e}"
 
-def check_domain_expiry(domain, max_retries=8):
+def check_domain_expiry(domain):
     """Fetch domain expiry date using WHOIS."""
-    for attempt in range(max_retries):
+    for attempt in range(MAX_RETRIES):
         try:
             domain_info = whois.whois(domain)
             expiry_date = domain_info.expiration_date
@@ -77,10 +82,10 @@ def check_domain_expiry(domain, max_retries=8):
     print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {max_retries} attempts failed.")
     return None, None
 
-def check_ssl_certificate(domain, max_retries=8):
+def check_ssl_certificate(domain):
     """Fetch SSL certificate expiration date for a subdomain."""
     full_domain = f"{domain}"
-    for attempt in range(max_retries):
+    for attempt in range(MAX_RETRIES):
         try:
             ctx = ssl.create_default_context()
             with socket.create_connection((full_domain, 443), timeout=10) as sock:
