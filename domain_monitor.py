@@ -10,8 +10,12 @@ docker run -d -p 16181:16181 yiminger/ymicp:latest
 http://0.0.0.0:16181/query/{type}?search={name}
 curl http://127.0.0.1:16181/query/web?search=baidu.com
 
+# Install all necessary Python Module or Package
+pip install requests python-whois pymongo
+
 Will use cronjob in Linux to repeat (Every 6 Hours execute below script - sudo crontab -e)
-0 */6 * * * /usr/bin/python3 /backup/domain_monitor.py >> /backup/domain_monitor_logfile.log 2>&1
+0 */6 * * * python3 /backup/domain_monitor.py >> /backup/domain_monitor_logfile.log 2>&1
+
 """
 
 import requests
@@ -21,30 +25,37 @@ import socket
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
+from pymongo import MongoClient
 
 # Configuration
-DOMAINS_TO_MONITOR = ["domain1.com", "domain2.com", "domain3.com"]  # Only will be use when FILE_PATH can't be found
+DOMAINS_TO_MONITOR = ["a.com", "b.com", "c.com"]  # Only will be use when FILE_PATH can't be found
 SUBDOMAINS_TO_CHECK = ["a", "b", "c", "d", "e"]  # Subdomains to check for SSL certificates
-FILE_PATH = "domain_monitor.txt"  # File containing domains to monitor
+FILE_PATH = "/domain_monitoring/domain_monitor.txt"  # File containing domains to monitor
 ICP_URL = "http://127.0.0.1:16181/query/web?search={}"  # Replace with your ICP query service URL
-ALERT_DAYS_THRESHOLD = 14  # Number of days before expiry to trigger an alert
-EMAIL_RECEIVERS = ["a@example.com", "aa@example.com"]
-SMTP_SERVER = "mail.example.com"
+DOMAIN_ALERT_DAYS_THRESHOLD = 30  # Number of days before expiry to trigger an alert
+SSL_ALERT_DAYS_THRESHOLD = 5  # Number of days before expiry to trigger an alert
+EMAIL_RECEIVERS = ["a@example.com", "b@example.com", "c@example.com"]
+SMTP_SERVER = "example.com"
 SMTP_PORT = 587
-SMTP_USER = "xyz@example.com"
-SMTP_PASSWORD = "your_password"
+SMTP_USER = "a@example.com"
+SMTP_PASSWORD = ""
+
+# MongoDB Configuration
+MONGO_URI = "mongodb://username:password@localhost:27017"
+MONGO_DB = "domain_monitoring"
+MONGO_COLLECTION = "domain_data"
 
 # Telegram Configuration
-TELEGRAM_BOT_TOKEN = "your_telegram_bot_token"  # Replace with your bot's API token
-TELEGRAM_CHAT_ID = "your_telegram_chat_id"  # Replace with your chat or group ID
+TELEGRAM_BOT_TOKEN = "xxxxxxxx:xxxxxxxxxxxxxxxx"  # Replace with your bot's API token
+TELEGRAM_CHAT_ID = "xxxxxxxx"  # Replace with your chat or group ID
 
-def fetch_icp_info_with_retries(domain, max_retries=5):
+def fetch_icp_info_with_retries(domain, max_retries=8):
     """Fetch ICP license information for a domain with retries."""
     for attempt in range(max_retries):
         try:
             #print(f"Attempt {attempt + 1} to fetch ICP info for domain: {domain}")
-            response = requests.get(ICP_URL.format(domain), timeout=10)
+            response = requests.get(ICP_URL.format(domain), timeout=20)
             response.raise_for_status()
             data = response.json()
 
@@ -89,7 +100,7 @@ def check_domain_expiry(domain):
             return None, None
     except Exception as e:
         print(f"Error checking expiry for {domain}: {e}")
-        return None, None
+    return None, None
 
 def check_ssl_certificate(domain, subdomain):
     """Fetch SSL certificate expiration date for a subdomain."""
@@ -104,7 +115,7 @@ def check_ssl_certificate(domain, subdomain):
                 return expiry_date, days_left
     except Exception as e:
         print(f"Error checking SSL certificate for {full_domain}: {e}")
-        return None, None
+    return None, None
 
 def send_telegram_alert(message):
     """Send a message to a Telegram chat or group."""
@@ -141,7 +152,39 @@ def send_alert(subject, message):
     """Send an alert via email and Telegram."""
     full_message = f"{subject}\n\n{message}"
     send_email_alert(subject, message)  # Email notification
-    send_telegram_alert(full_message)  # Telegram notification
+    send_telegram_alert(full_message)  # Telegram noitification
+
+def save_to_mongo(data):
+    try:
+        client = MongoClient(MONGO_URI)
+        db = client[MONGO_DB]
+        collection = db[MONGO_COLLECTION]
+        collection.insert_one(data)
+        print(f"Data saved to MongoDB for domain: {data['domain']}")
+        print(f"Data saved {data}")
+    except Exception as e:
+        print(f"Error saving to MongoDB: {e}")
+
+def delete_old_mongo():
+    try:
+        client = MongoClient(MONGO_URI)
+        db = client[MONGO_DB]
+        collection = db[MONGO_COLLECTION]
+
+        # Check if the index exists, and create it if it doesn't
+        if "checked_at_1" not in collection.index_information():
+            collection.create_index([("checked_at", 1)])
+
+        # Get the date 3 months ago (90 Days)
+        three_months_ago = datetime.now() - timedelta(days=1)
+        
+        # Delete documents where 'checked_at' is older than 3 months
+        result = collection.delete_many({"checked_at": {"$lt": three_months_ago}})
+
+        # Output how many documents were deleted
+        print(f"Deleted {result.deleted_count} documents.")
+    except Exception as e:
+        print(f"Error deleting old MongoDB Data: {e}")
 
 def monitor_domains():
     """Monitor each domain for ICP license and expiration."""
@@ -165,7 +208,7 @@ def monitor_domains():
         if not main_license or not service_license:
             print(f"WARNING - No ICP license found for {domain}")
             send_alert(
-                f"No ICP license found for {domain}",
+                f"ALERT - No ICP license found for {domain}",
                 f"The domain {domain} does not have a valid ICP license."
             )
         else:
@@ -175,10 +218,10 @@ def monitor_domains():
         print(f"Checking expiry info for domain: {domain}")
         expiry_date, days_left = check_domain_expiry(domain)
         if expiry_date:
-            if days_left < ALERT_DAYS_THRESHOLD:
+            if days_left < DOMAIN_ALERT_DAYS_THRESHOLD:
                 print(f"WARNING - Domain expiring soon for {domain}")
                 send_alert(
-                    f"Domain expiring soon: {domain}",
+                    f"ALERT - Domain expiring soon: {domain}",
                     f"The domain {domain} will expire on {expiry_date} ({days_left} days remaining)."
                 )
             print(f"Domain: {domain}, Expiry Date: {expiry_date}, Days Left: {days_left}")
@@ -190,14 +233,21 @@ def monitor_domains():
             print(f"Could not determine expiry for {domain}")
 
         # Check subdomain SSL
+        ssl_info = []
         for subdomain in SUBDOMAINS_TO_CHECK:
             print(f"Checking SSL certificate for subdomain: {subdomain}.{domain}")
             ssl_expiry_date, ssl_days_left = check_ssl_certificate(domain, subdomain)
+            ssl_info.append({
+                "domain": domain,
+                "subdomain": subdomain,
+                "ssl_expiry_date": ssl_expiry_date,
+                "ssl_days_left": ssl_days_left
+            })
             if ssl_expiry_date:
-                if ssl_days_left < ALERT_DAYS_THRESHOLD:
+                if ssl_days_left < SSL_ALERT_DAYS_THRESHOLD:
                     print(f"WARNING - SSL Certificate expiring soon for {domain}")
                     send_alert(
-                        f"SSL Certificate expiring soon: {subdomain}.{domain}",
+                        f"ALERT - SSL Certificate expiring soon: {subdomain}.{domain}",
                         f"The SSL certificate for {subdomain}.{domain} will expire on {ssl_expiry_date} ({ssl_days_left} days remaining)."
                     )
                 print(f"Subdomain: {subdomain}.{domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
@@ -206,6 +256,26 @@ def monitor_domains():
                     f"Unable to determine SSL certificate expiry for {subdomain}.{domain}",
                     f"Failed to fetch the SSL certificate expiry for {subdomain}.{domain}."
                 )
+
+        # Save data to MongoDB
+        data = {
+            "domain": domain,
+            "checked_at": current_datetime,
+            "icp_info": {
+                "main_license": main_license,
+                "service_license": service_license,
+                "unit_name": unit_name,
+                "update_record_time": update_record_time,
+            },
+            "whois_info": {
+                "expiry_date": expiry_date,
+                "days_left": days_left,
+            },
+            "ssl_info": ssl_info,
+        }
+        save_to_mongo(data)
+    delete_old_mongo()
+
 
 # Run the monitoring script
 if __name__ == "__main__":
