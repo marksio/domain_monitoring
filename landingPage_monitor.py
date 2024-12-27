@@ -1,3 +1,13 @@
+"""
+
+# Install all necessary Python Module or Package
+pip install requests python-whois pymongo
+
+Will use cronjob in Linux to repeat (Every 6 Hours execute below script - sudo crontab -e)
+0 */6 * * * /usr/bin/python3 /backup/domain_monitor.py >> /backup/domain_monitor_logfile.log 2>&1
+
+"""
+
 import requests
 import whois
 import ssl
@@ -9,14 +19,14 @@ from datetime import datetime, timedelta
 from pymongo import MongoClient
 
 # Configuration
-DOMAINS_TO_MONITOR = ["a.com", "b.com", "c.com", "d.com", "e.com"]  # Only will be use when FILE_PATH can't be found
+DOMAINS_TO_MONITOR = ["a.cn", "b.com", "c.com"]  # Only will be use when FILE_PATH can't be found
 FILE_PATH = "/domain_monitoring/landingPage_domain_monitor.txt"  # File containing domains to monitor
 DOMAIN_ALERT_DAYS_THRESHOLD = 30  # Number of days before expiry to trigger an alert
 SSL_ALERT_DAYS_THRESHOLD = 5  # Number of days before expiry to trigger an alert
-EMAIL_RECEIVERS = ["a@example.com", "b@example.com", "c@example.com"]
-SMTP_SERVER = "example.com"
+EMAIL_RECEIVERS = ["", "", ""]
+SMTP_SERVER = "
 SMTP_PORT = 587
-SMTP_USER = "a@example.com"
+SMTP_USER = ""
 SMTP_PASSWORD = ""
 
 # MongoDB Configuration
@@ -25,57 +35,64 @@ MONGO_DB = "landingPage_monitoring"
 MONGO_COLLECTION = "landingPage_data"
 
 # Telegram Configuration
-TELEGRAM_BOT_TOKEN = "xxxxx:xxxxxxxxx"  # Replace with your bot's API token
-TELEGRAM_CHAT_ID = "xxxxxxx"  # Replace with your chat or group ID
+TELEGRAM_BOT_TOKEN = ""  # Replace with your bot's API token
+TELEGRAM_CHAT_ID = ""  # Replace with your chat or group ID
 
-def check_page_status(domain):
-    try:
-        print(f"Checking https://{domain} landing page status")
-        domain = f"https://{domain}"
-        response = requests.get(domain, timeout=10)
+# Slack Configuration
+SLACK_WEBHOOK_URL = ""
 
-        if response.status_code != 200:
-            print(f"Error: Received HTTP {response.status_code} from {domain}")
-            return f"Error: Received HTTP {response.status_code} from {domain}"
-        elif response.status_code == 200:
-            print(f"OK from {domain}")
-            return True
-    except requests.Timeout:
-        print(f"Timeout error while checking {domain}")
-        return f"Timeout error while checking {domain}"
-    except requests.RequestException as e:
-        print(f"Request error while checking {domain}: {e}")
-        return f"Request error while checking {domain}: {e}"
+def check_page_status(domain, max_retries=8):
+    """Check Landing Page status with retries."""
+    print(f"Checking https://{domain} landing page status")
+    domain = f"https://{domain}"
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(domain, timeout=10)
+            if response.status_code == 200:
+                print(f"OK for {domain} on attend {attempt + 1}")
+                return True
+        except requests.Timeout:
+            print(f"Timeout error while checking {domain}")
+        except requests.RequestException as e:
+            print(f"Request error while checking {domain}: {e}")
+    print(f"WARNING - Invalid Landing Page status for domain: {domain}, all {max_retries} attempts failed.")
+    return f"Request error while checking {domain}: {e}"
 
-def check_domain_expiry(domain):
+def check_domain_expiry(domain, max_retries=8):
     """Fetch domain expiry date using WHOIS."""
-    try:
-        domain_info = whois.whois(domain)
-        expiry_date = domain_info.expiration_date
-        if isinstance(expiry_date, list):  # Handle cases where multiple dates are returned
-            expiry_date = expiry_date[0]
-        if expiry_date:
-            days_left = (expiry_date - datetime.now()).days
-            return expiry_date, days_left
-        else:
-            return None, None
-    except Exception as e:
-        print(f"Error checking expiry for {domain}: {e}")
+    for attempt in range(max_retries):
+        try:
+            domain_info = whois.whois(domain)
+            expiry_date = domain_info.expiration_date
+            if isinstance(expiry_date, list):  # Handle cases where multiple dates are returned
+                expiry_date = expiry_date[0]
+            if expiry_date:
+                days_left = (expiry_date - datetime.now()).days
+                print(f"Domain expiry found on attempt {attempt + 1} for domain: {domain}")
+                return expiry_date, days_left
+            else:
+                return None, None
+        except Exception as e:
+            print(f"Error checking expiry for {domain}: {e}")
+    print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {max_retries} attempts failed.")
     return None, None
 
-def check_ssl_certificate(domain):
+def check_ssl_certificate(domain, max_retries=8):
     """Fetch SSL certificate expiration date for a subdomain."""
     full_domain = f"{domain}"
-    try:
-        ctx = ssl.create_default_context()
-        with socket.create_connection((full_domain, 443), timeout=10) as sock:
-            with ctx.wrap_socket(sock, server_hostname=full_domain) as ssock:
-                cert = ssock.getpeercert()
-                expiry_date = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y GMT')
-                days_left = (expiry_date - datetime.now()).days
-                return expiry_date, days_left
-    except Exception as e:
-        print(f"Error checking SSL certificate for {full_domain}: {e}")
+    for attempt in range(max_retries):
+        try:
+            ctx = ssl.create_default_context()
+            with socket.create_connection((full_domain, 443), timeout=10) as sock:
+                with ctx.wrap_socket(sock, server_hostname=full_domain) as ssock:
+                    cert = ssock.getpeercert()
+                    expiry_date = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y GMT')
+                    days_left = (expiry_date - datetime.now()).days
+                    print(f"Domain SSL expiry found on attempt {attempt + 1} for domain: {domain}")
+                    return expiry_date, days_left
+        except Exception as e:
+            print(f"Error checking SSL certificate for {full_domain}: {e}")
+    print(f"WARNING - Can't obtain SSL Expiry for domain: {domain}, all {max_retries} attempts failed.")
     return None, None
 
 def send_telegram_alert(message):
@@ -90,6 +107,18 @@ def send_telegram_alert(message):
             print(f"Failed to send Telegram alert: {response.text}")
     except Exception as e:
         print(f"Error sending Telegram alert: {e}")
+
+def send_slack_alert(message):
+    """Send a notification to a Slack channel."""
+    payload = {"text": message}
+    try:
+        response = requests.post(SLACK_WEBHOOK_URL, json=payload)
+        if response.status_code == 200:
+            print("Slack alert sent successfully.")
+        else:
+            print(f"Failed to send Slack alert: {response.text}")
+    except Exception as e:
+        print(f"Error sending Slack alert: {e}")
 
 def send_email_alert(subject, message):
     """Send an email alert to the configured receivers."""
@@ -110,10 +139,11 @@ def send_email_alert(subject, message):
         print(f"Error sending email: {e}")
 
 def send_alert(subject, message):
-    """Send an alert via email and Telegram."""
+    """Send an alert via email, Telegram and Slack."""
     full_message = f"{subject}\n\n{message}"
     send_email_alert(subject, message)  # Email notification
     send_telegram_alert(full_message)  # Telegram noitification
+    #send_slack_alert(full_message)  # Slack notification
 
 def save_to_mongo(data):
     try:
@@ -122,7 +152,6 @@ def save_to_mongo(data):
         collection = db[MONGO_COLLECTION]
         collection.insert_one(data)
         print(f"Data saved to MongoDB for domain: {data['domain']}")
-        print(f"{data}")
     except Exception as e:
         print(f"Error saving to MongoDB: {e}")
 
@@ -136,11 +165,11 @@ def delete_old_mongo():
         if "checked_at_1" not in collection.index_information():
             collection.create_index([("checked_at", 1)])
 
-        # Get the date 3 months ago (90 Days)
-        three_months_ago = datetime.now() - timedelta(days=1)
+        # Get the date 1 month ago (30 Days)
+        one_month_ago = datetime.now() - timedelta(days=1)
         
-        # Delete documents where 'checked_at' is older than 3 months
-        result = collection.delete_many({"checked_at": {"$lt": three_months_ago}})
+        # Delete documents where 'checked_at' is older than 1 month
+        result = collection.delete_many({"checked_at": {"$lt": one_month_ago}})
 
         # Output how many documents were deleted
         print(f"Deleted {result.deleted_count} documents.")
