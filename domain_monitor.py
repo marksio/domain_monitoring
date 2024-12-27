@@ -73,11 +73,11 @@ def fetch_icp_info_with_retries(domain):
             data = response.json()
 
             # Parse ICP data
-            main_license, service_license, unit_name, update_record_time = parse_icp_data(data)
+            main_license, service_license, unit_name, nature_name, update_record_time = parse_icp_data(data)
             if main_license and service_license:
                 print(f"ICP License found on attempt {attempt + 1} for domain: {domain}")
-                print(f"Unit_Name: {unit_name}, Update_Record_Time: {update_record_time}, Main_Licence: {main_license}, Service_Licence: {service_license}")
-                return main_license, service_license, unit_name, update_record_time
+                print(f"Unit_Name: {unit_name}, Nature_Name: {nature_name}, Update_Record_Time: {update_record_time}, Main_Licence: {main_license}, Service_Licence: {service_license}")
+                return main_license, service_license, unit_name, nature_name, update_record_time
             
             #print(f"No ICP license found on attempt {attempt + 1} for domain: {domain}")
 
@@ -85,19 +85,20 @@ def fetch_icp_info_with_retries(domain):
             print(f"Error on attempt {attempt + 1} for domain {domain}: {e}")
 
     print(f"WARNING - Invalid  ICP License for domain: {domain}, all {max_retries} attempts failed.")
-    return None, None, None, None
+    return None, None, None, None, None
 
 def parse_icp_data(data):
     """Parse the ICP data to check for licenses."""
     icp_list = data.get("params", {}).get("list", [])
     if not icp_list:
-        return None, None, None, None  # No license found
+        return None, None, None, None, None  # No license found
     icp_info = icp_list[0]
     main_license = icp_info.get("mainLicence")
     service_license = icp_info.get("serviceLicence")
     unit_name = icp_info.get("unitName")
+    nature_name = icp_info.get("natureName")
     update_record_time = icp_info.get("updateRecordTime")
-    return main_license, service_license, unit_name, update_record_time
+    return main_license, service_license, unit_name, nature_name, update_record_time
 
 def check_domain_expiry(domain):
     """Fetch domain expiry date using WHOIS with retries."""
@@ -237,7 +238,7 @@ def monitor_domains():
         print(f"Checking ICP info for domain: {domain}")
         
         # Fetch ICP information with retries
-        main_license, service_license, unit_name, update_record_time = fetch_icp_info_with_retries(domain)
+        main_license, service_license, unit_name, nature_name, update_record_time = fetch_icp_info_with_retries(domain)
         if not main_license or not service_license:
             print(f"WARNING - No ICP license found for {domain}")
             send_alert(
@@ -298,6 +299,7 @@ def monitor_domains():
                 "main_license": main_license,
                 "service_license": service_license,
                 "unit_name": unit_name,
+                "nature_name": nature_name,
                 "update_record_time": update_record_time,
             },
             "whois_info": {
@@ -313,3 +315,4 @@ def monitor_domains():
 # Run the monitoring script
 if __name__ == "__main__":
     monitor_domains()
+    
