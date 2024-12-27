@@ -3,8 +3,12 @@
 # Install all necessary Python Module or Package
 pip install requests python-whois pymongo
 
-Will use cronjob in Linux to repeat (Every 6 Hours execute below script - sudo crontab -e)
-0 */6 * * * /usr/bin/python3 /backup/domain_monitor.py >> /backup/domain_monitor_logfile.log 2>&1
+# Will use cronjob in Linux to repeat (Every 6 Hours execute below script - sudo crontab -e)
+30 */6 * * * /usr/bin/python3 /backup/domain_monitor.py >> /backup/domain_monitor_logfile.log 2>&1
+
+# Access MongoDB on Docker
+docker exec -it <MONGODB_DOCKER_ID> bash
+mongo -u username -p password
 
 """
 
