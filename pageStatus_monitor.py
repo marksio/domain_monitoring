@@ -231,7 +231,7 @@ def monitor_domains():
         print(f"Checking expiry info for domain: {domain}")
         expiry_date, days_left = check_domain_expiry(domain)
         if expiry_date:
-            if days_left < DOMAIN_ALERT_DAYS_THRESHOLD:
+            if days_left <= DOMAIN_ALERT_DAYS_THRESHOLD:
                 print(f"WARNING - Domain expiring soon for {domain}")
                 send_alert(
                     f"ALERT - Domain expiring soon: {domain}",
@@ -249,7 +249,7 @@ def monitor_domains():
         print(f"Checking SSL certificate for domain: {domain}")
         ssl_expiry_date, ssl_days_left = check_ssl_certificate(domain)
         if ssl_expiry_date:
-            if ssl_days_left < SSL_ALERT_DAYS_THRESHOLD:
+            if ssl_days_left <= SSL_ALERT_DAYS_THRESHOLD:
                 print(f"WARNING - SSL Certificate expiring soon for {domain}")
                 send_alert(
                     f"ALERT - SSL Certificate expiring soon: {domain}",
