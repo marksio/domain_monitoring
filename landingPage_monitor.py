@@ -64,8 +64,8 @@ def check_page_status(domain):
             print(f"Timeout error while checking {domain}")
         except requests.RequestException as e:
             print(f"Request error while checking {domain}: {e}")
-    print(f"WARNING - Invalid Landing Page status for domain: {domain}, all {max_retries} attempts failed.")
-    return f"Request error while checking {domain}: {e}"
+    print(f"WARNING - Invalid Landing Page status for domain: {domain}, all {MAX_RETRIES} attempts failed.")
+    return False
 
 def check_domain_expiry(domain):
     """Fetch domain expiry date using WHOIS."""
@@ -83,7 +83,7 @@ def check_domain_expiry(domain):
                 return None, None
         except Exception as e:
             print(f"Error checking expiry for {domain}: {e}")
-    print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {max_retries} attempts failed.")
+    print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {MAX_RETRIES} attempts failed.")
     return None, None
 
 def check_ssl_certificate(domain):
@@ -101,7 +101,7 @@ def check_ssl_certificate(domain):
                     return expiry_date, days_left
         except Exception as e:
             print(f"Error checking SSL certificate for {full_domain}: {e}")
-    print(f"WARNING - Can't obtain SSL Expiry for domain: {domain}, all {max_retries} attempts failed.")
+    print(f"WARNING - Can't obtain SSL Expiry for domain: {domain}, all {MAX_RETRIES} attempts failed.")
     return None, None
 
 def send_telegram_alert(message):
@@ -152,7 +152,7 @@ def send_alert(subject, message):
     full_message = f"{subject}\n\n{message}"
     send_email_alert(subject, message)  # Email notification
     send_telegram_alert(full_message)  # Telegram noitification
-    #send_slack_alert(full_message)  # Slack notification
+    send_slack_alert(full_message)  # Slack notification
 
 def save_to_mongo(data):
     try:
@@ -203,7 +203,7 @@ def monitor_domains():
         print(f"Checking Landing Page status for domain: {domain}")
         # Check domain landing page status
         status = check_page_status(domain)
-        if status != True or not status:
+        if status != True and status == False:
             print(f"WARNING - Unable to load landing page for {domain}")
             send_alert(
                 f"ALERT - Unable to load landing page for {domain}",
@@ -231,8 +231,8 @@ def monitor_domains():
                 f"WHOIS lookup failed to find the expiry date for {domain}."
             )
             print(f"Could not determine expiry for {domain}")
-
-        # Check domain SSL
+        
+         # Check domain SSL
         ssl_info = []
         domains_to_check = [domain, f"www.{domain}"]
         for full_domain in domains_to_check:
