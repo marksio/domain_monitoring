@@ -232,22 +232,30 @@ def monitor_domains():
             )
             print(f"Could not determine expiry for {domain}")
 
-        # Check subdomain SSL
-        print(f"Checking SSL certificate for doamin: {domain}")
-        ssl_expiry_date, ssl_days_left = check_ssl_certificate(domain)
-        if ssl_expiry_date:
-            if ssl_days_left < SSL_ALERT_DAYS_THRESHOLD:
-                print(f"WARNING - SSL Certificate expiring soon for {domain}")
+        # Check domain SSL
+        ssl_info = []
+        domains_to_check = [domain, f"www.{domain}"]
+        for full_domain in domains_to_check:
+            print(f"Checking SSL certificate for domain: {full_domain}")
+            ssl_expiry_date, ssl_days_left = check_ssl_certificate(full_domain)
+            ssl_info.append({
+                "domain": full_domain,
+                "ssl_expiry_date": ssl_expiry_date,
+                "ssl_days_left": ssl_days_left
+            })
+            if ssl_expiry_date:
+                if ssl_days_left < SSL_ALERT_DAYS_THRESHOLD:
+                    print(f"WARNING - SSL Certificate expiring soon for {full_domain}")
+                    send_alert(
+                        f"ALERT - SSL Certificate expiring soon: {full_domain}",
+                        f"The SSL certificate for {full_domain} will expire on {ssl_expiry_date} ({ssl_days_left} days remaining)."
+                    )
+                print(f"Domain: {full_domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
+            else:
                 send_alert(
-                    f"ALERT - SSL Certificate expiring soon: {domain}",
-                    f"The SSL certificate for {domain} will expire on {ssl_expiry_date} ({ssl_days_left} days remaining)."
+                    f"Unable to determine SSL certificate expiry for {full_domain}",
+                    f"Failed to fetch the SSL certificate expiry for {full_domain}."
                 )
-            print(f"Domain: {domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
-        else:
-            send_alert(
-                f"Unable to determine SSL certificate expiry for {domain}",
-                f"Failed to fetch the SSL certificate expiry for {domain}."
-            )
 
         # Save data to MongoDB
         data = {
@@ -260,10 +268,7 @@ def monitor_domains():
                 "expiry_date": expiry_date,
                 "days_left": days_left,
             },
-            "ssl_info": {
-                "ssl_expiry_date": ssl_expiry_date,
-                "ssl_days_left": ssl_days_left,
-            },
+            "ssl_info": ssl_info,
         }
         save_to_mongo(data)
     delete_old_mongo()
