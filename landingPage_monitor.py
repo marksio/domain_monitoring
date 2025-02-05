@@ -232,7 +232,7 @@ def monitor_domains():
             )
             print(f"Could not determine expiry for {domain}")
         
-         # Check domain SSL
+        # Check domain SSL
         ssl_info = []
         domains_to_check = [domain, f"www.{domain}"]
         for full_domain in domains_to_check:
