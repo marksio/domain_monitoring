@@ -84,7 +84,7 @@ def fetch_icp_info_with_retries(domain):
         except requests.RequestException as e:
             print(f"Error on attempt {attempt + 1} for domain {domain}: {e}")
 
-    print(f"WARNING - Invalid  ICP License for domain: {domain}, all {max_retries} attempts failed.")
+    print(f"WARNING - Invalid  ICP License for domain: {domain}, all {MAX_RETRIES} attempts failed.")
     return None, None, None, None, None
 
 def parse_icp_data(data):
@@ -117,12 +117,12 @@ def check_domain_expiry(domain):
         except Exception as e:
             print(f"Error checking expiry for {domain}: {e}")
 
-    print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {max_retries} attempts failed.")
+    print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {MAX_RETRIES} attempts failed.")
     return None, None
 
-def check_ssl_certificate(domain, subdomain):
+def check_ssl_certificate(domain):
     """Fetch SSL certificate expiration date for a subdomain."""
-    full_domain = f"{subdomain}.{domain}"
+    full_domain = f"{domain}"
     for attempt in range(MAX_RETRIES):
         try:
             ctx = ssl.create_default_context()
@@ -135,8 +135,7 @@ def check_ssl_certificate(domain, subdomain):
                     return expiry_date, days_left
         except Exception as e:
             print(f"Error checking SSL certificate for {full_domain}: {e}")
-    
-    print(f"WARNING - Can't obtain SSL Expiry for domain: {domain}, all {max_retries} attempts failed.")
+    print(f"WARNING - Can't obtain SSL Expiry for domain: {domain}, all {MAX_RETRIES} attempts failed.")
     return None, None
 
 def send_telegram_alert(message):
@@ -187,7 +186,7 @@ def send_alert(subject, message):
     full_message = f"{subject}\n\n{message}"
     send_email_alert(subject, message)  # Email notification
     send_telegram_alert(full_message)  # Telegram noitification
-    #send_slack_alert(full_message)  # Slack notification
+    send_slack_alert(full_message)  # Slack notification
 
 def save_to_mongo(data):
     try:
@@ -269,11 +268,11 @@ def monitor_domains():
         # Check subdomain SSL
         ssl_info = []
         for subdomain in SUBDOMAINS_TO_CHECK:
-            print(f"Checking SSL certificate for subdomain: {subdomain}.{domain}")
-            ssl_expiry_date, ssl_days_left = check_ssl_certificate(domain, subdomain)
+            full_domain = f"{subdomain}.{domain}"
+            print(f"Checking SSL certificate for subdomain: {full_domain}")
+            ssl_expiry_date, ssl_days_left = check_ssl_certificate(full_domain)
             ssl_info.append({
-                "domain": domain,
-                "subdomain": subdomain,
+                "domain": full_domain,
                 "ssl_expiry_date": ssl_expiry_date,
                 "ssl_days_left": ssl_days_left
             })
@@ -284,11 +283,11 @@ def monitor_domains():
                         f"ALERT - SSL Certificate expiring soon: {subdomain}.{domain}",
                         f"The SSL certificate for {subdomain}.{domain} will expire on {ssl_expiry_date} ({ssl_days_left} days remaining)."
                     )
-                print(f"Subdomain: {subdomain}.{domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
+                print(f"Subdomain: {full_domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
             else:
                 send_alert(
-                    f"Unable to determine SSL certificate expiry for {subdomain}.{domain}",
-                    f"Failed to fetch the SSL certificate expiry for {subdomain}.{domain}."
+                    f"Unable to determine SSL certificate expiry for {full_domain}",
+                    f"Failed to fetch the SSL certificate expiry for {full_domain}."
                 )
 
         # Save data to MongoDB
