@@ -219,7 +219,7 @@ def monitor_domains():
         if status != True and status == False:
             print(f"WARNING - Unable to load landing page for {domain}")
             send_alert(
-                f"ALERT - Unable to load landing page for {domain}",
+                f"🚨 ALERT - Unable to load landing page for {domain} 🚨",
                 f"The landing page {domain} is unable to load."
             )
             status = "Error"
@@ -234,7 +234,7 @@ def monitor_domains():
             if days_left <= DOMAIN_ALERT_DAYS_THRESHOLD:
                 print(f"WARNING - Domain expiring soon for {domain}")
                 send_alert(
-                    f"ALERT - Domain expiring soon: {domain}",
+                    f"🚨 ALERT - Domain expiring soon: {domain} 🚨",
                     f"The domain {domain} will expire on {expiry_date} ({days_left} days remaining)."
                 )
             print(f"Domain: {domain}, Expiry Date: {expiry_date}, Days Left: {days_left}")
@@ -245,14 +245,14 @@ def monitor_domains():
             )
             print(f"Could not determine expiry for {domain}")
 
-        # Check subdomain SSL
+        # Check domain SSL
         print(f"Checking SSL certificate for domain: {domain}")
         ssl_expiry_date, ssl_days_left = check_ssl_certificate(domain)
         if ssl_expiry_date:
             if ssl_days_left <= SSL_ALERT_DAYS_THRESHOLD:
                 print(f"WARNING - SSL Certificate expiring soon for {domain}")
                 send_alert(
-                    f"ALERT - SSL Certificate expiring soon: {domain}",
+                    f"🚨 ALERT - SSL Certificate expiring soon: {domain} 🚨",
                     f"The SSL certificate for {domain} will expire on {ssl_expiry_date} ({ssl_days_left} days remaining)."
                 )
             print(f"Domain: {domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
