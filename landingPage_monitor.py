@@ -79,8 +79,6 @@ def check_domain_expiry(domain):
                 days_left = (expiry_date - datetime.now()).days
                 print(f"Domain expiry found on attempt {attempt + 1} for domain: {domain}")
                 return expiry_date, days_left
-            else:
-                return None, None
         except Exception as e:
             print(f"Error checking expiry for {domain}: {e}")
     print(f"WARNING - Can't obtain Domain Expiry for domain: {domain}, all {MAX_RETRIES} attempts failed.")
