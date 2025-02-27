@@ -234,19 +234,27 @@ def monitor_domains():
         current_datetime = datetime.now()
 
         print("\nCurrent date and time:", current_datetime)
-        print(f"Checking ICP info for domain: {domain}")
         
         # Fetch ICP information with retries
-        main_license, service_license, unit_name, nature_name, update_record_time = fetch_icp_info_with_retries(domain)
-        if not main_license or not service_license:
-            print(f"WARNING - No ICP license found for {domain}")
-            send_alert(
-                f"🚨 ALERT - No ICP license found for {domain} 🚨",
-                f"The domain {domain} does not have a valid ICP license."
-            )
+        if domain == "xxxxxxxxxx.com" or domain == "yyyyyyyyyyy.com":
+            main_license = ""
+            service_license = ""
+            unit_name = ""
+            nature_name = ""
+            update_record_time = ""
+            print(f"Skipping ICP Scan for {domain}")
         else:
-            print(f"Domain {domain} has valid ICP licenses.")
-        
+            print(f"Checking ICP info for domain: {domain}")
+            main_license, service_license, unit_name, nature_name, update_record_time = fetch_icp_info_with_retries(domain)
+            if not main_license or not service_license:
+                print(f"WARNING - No ICP license found for {domain}")
+                send_alert(
+                    f"🚨 ALERT - No ICP license found for {domain} 🚨",
+                    f"The domain {domain} does not have a valid ICP license."
+                )
+            else:
+                print(f"Domain {domain} has valid ICP licenses.")
+
         # Check domain expiry
         print(f"Checking expiry info for domain: {domain}")
         expiry_date, days_left = check_domain_expiry(domain)
@@ -282,7 +290,7 @@ def monitor_domains():
                     print(f"WARNING - SSL Certificate expiring soon for {domain}")
                     alert_message = "🚨 ALERT - SSL Certificate expiring soon  🚨\n\n"
                     alerts.append(f"SSL certificate for {full_domain} will expire on {ssl_expiry_date} ({ssl_days_left} days remaining).")
-                print(f"Subdomain: {full_domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
+                    print(f"Subdomain: {full_domain}, SSL Expiry Date: {ssl_expiry_date}, SSL Days Left: {ssl_days_left}")
             else:
                 send_alert(
                     f"Unable to determine SSL certificate expiry for {full_domain}",
