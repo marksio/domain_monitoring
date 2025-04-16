@@ -14,6 +14,8 @@ docker run -d -p 16182:16181 yiminger/ymicp:latest
 
 http://0.0.0.0:16181/query/{type}?search={name}
 curl http://127.0.0.1:16181/query/web?search=baidu.com
+http://0.0.0.0:16182/query/{type}?search={name}
+curl http://127.0.0.1:16182/query/web?search=baidu.com
 
 # Install all necessary Python Module or Package
 pip install requests python-whois pymongo
@@ -41,7 +43,7 @@ from pymongo import MongoClient
 DOMAINS_TO_MONITOR = ["", "", ""]  # Only will be use when FILE_PATH can't be found
 SUBDOMAINS_TO_CHECK = ["", "", "", "", ""]  # Subdomains to check for SSL certificates
 FILE_PATH = "/domain_monitoring/domain_monitor.txt"  # File containing domains to monitor
-ICP_URL = "http://127.0.0.1:16181/query/web?search={}"  # Replace with your ICP query service URL
+ICP_URLS = ["http://127.0.0.1:16181/query/web?search={}","http://127.0.0.1:16182/query/web?search={}"] # Replace with your ICP query service URL
 MAX_RETRIES = 8
 
 # Alert Days Confguration
