@@ -68,27 +68,26 @@ TELEGRAM_CHAT_ID = ""  # Replace with your chat or group ID
 SLACK_WEBHOOK_URL = ""
 
 def fetch_icp_info_with_retries(domain):
-    """Fetch ICP license information for a domain with retries."""
+     """Fetch ICP license information for a domain with retries."""
     for attempt in range(MAX_RETRIES):
-        try:
-            #print(f"Attempt {attempt + 1} to fetch ICP info for domain: {domain}")
-            response = requests.get(ICP_URL.format(domain), timeout=20)
-            response.raise_for_status()
-            data = response.json()
+        for url in ICP_URLS:
+            try:
+                print(f"Attempt {attempt + 1} using {url} for domain: {domain}")
+                response = requests.get(url.format(domain), timeout=20)
+                response.raise_for_status()
+                data = response.json()
 
-            # Parse ICP data
-            main_license, service_license, unit_name, nature_name, update_record_time = parse_icp_data(data)
-            if main_license and service_license:
-                print(f"ICP License found on attempt {attempt + 1} for domain: {domain}")
-                print(f"Unit_Name: {unit_name}, Nature_Name: {nature_name}, Update_Record_Time: {update_record_time}, Main_Licence: {main_license}, Service_Licence: {service_license}")
-                return main_license, service_license, unit_name, nature_name, update_record_time
-            
-            #print(f"No ICP license found on attempt {attempt + 1} for domain: {domain}")
+                # Parse ICP data
+                main_license, service_license, unit_name, nature_name, update_record_time = parse_icp_data(data)
+                if main_license and service_license:
+                    print(f"ICP License found on attempt {attempt + 1} for domain: {domain}")
+                    print(f"Unit_Name: {unit_name}, Nature_Name: {nature_name}, Update_Record_Time: {update_record_time}, Main_Licence: {main_license}, Service_Licence: {service_license}")
+                    return main_license, service_license, unit_name, nature_name, update_record_time
 
-        except requests.RequestException as e:
-            print(f"Error on attempt {attempt + 1} for domain {domain}: {e}")
+            except requests.RequestException as e:
+                print(f"Error on attempt {attempt + 1} using {url} for domain {domain}: {e}")
 
-    print(f"WARNING - Invalid  ICP License for domain: {domain}, all {MAX_RETRIES} attempts failed.")
+    print(f"WARNING - Invalid ICP License for domain: {domain}, all {MAX_RETRIES} attempts failed across all URLs.")
     return None, None, None, None, None
 
 def parse_icp_data(data):
