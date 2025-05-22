@@ -6,11 +6,11 @@ Docker Hub: https://hub.docker.com/r/yiminger/ymicp/tags
 # 拉取镜像
 docker pull yiminger/ymicp:yolo8_latest
 # 运行并转发容器16181端口到本地所有地址
-docker run -d -p 16181:16181 yiminger/ymicp:yolo8_latest
+docker run -d -p 16181:16181 --name icpV2 --restart=always yiminger/ymicp:yolo8_latest
 
 docker pull yiminger/ymicp:latest
 # 运行并转发容器16182端口到本地所有地址
-docker run -d -p 16182:16181 yiminger/ymicp:latest
+docker run -d -p 16182:16181 --name icpV1 --restart=always yiminger/ymicp:latest
 
 http://0.0.0.0:16181/query/{type}?search={name}
 curl http://127.0.0.1:16181/query/web?search=baidu.com
